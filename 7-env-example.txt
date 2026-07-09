@@ -1,0 +1,8 @@
+# Telegram bot tokeni (BotFather'dan olinadi)
+BOT_TOKEN=1234567890:AA...
+
+# Mini app manzili (Railway domeningiz). Deploy'dan keyin qo'shiladi.
+WEBAPP_URL=https://ombor-bot-production.up.railway.app
+
+# Ma'lumotlar bazasi (Railway Postgres o'zi beradi — qo'lda yozmang, reference qiling)
+# DATABASE_URL=postgresql://...
