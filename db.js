@@ -12,26 +12,26 @@ export const pool = new Pool({
 
 // ─── Boshlang'ich mahsulotlar (raqamlar keyin o'zgartiriladi) ───
 export const SEED = [
-  { id: "lesa", name: "Lesa", total: 5000 },
-  { id: "lesa80", name: "Lesa 80lik", total: 2000 },
-  { id: "stoyka370", name: "Stoyka 3.70m", total: 800 },
-  { id: "stoyka4", name: "Stoyka 4m", total: 800 },
-  { id: "stoyka45", name: "Stoyka 4.5m", total: 800 },
-  { id: "stoyka5", name: "Stoyka 5m", total: 800 },
-  { id: "stoyka55", name: "Stoyka 5.5m", total: 800 },
-  { id: "monolit15", name: "Monolit lesa 1.5m", total: 500 },
-  { id: "monolit2", name: "Monolit lesa 2m", total: 500 },
-  { id: "rezba1", name: "Rezba 1m", total: 3000 },
-  { id: "rezba120", name: "Rezba 1.20m", total: 3000 },
-  { id: "soedinitel", name: "Soedinitel", total: 4000 },
-  { id: "univilka", name: "Univilka", total: 2000 },
-  { id: "balka3", name: "Balka 3m", total: 1000 },
-  { id: "tayrot1", name: "Tayrot 1m", total: 2000 },
-  { id: "tayrot120", name: "Tayrot 1.20m", total: 2000 },
-  { id: "shpilka1", name: "Shpilka 1m", total: 3000 },
-  { id: "shpilka120", name: "Shpilka 1.20m", total: 3000 },
-  { id: "gayka", name: "Gayka", total: 5000 },
-  { id: "lyulka", name: "Lyulka", total: 100 },
+  { id: "lesa", name: "Lesa", total: 0 },
+  { id: "lesa80", name: "Lesa 80lik", total: 0 },
+  { id: "stoyka370", name: "Stoyka 3.70m", total: 0 },
+  { id: "stoyka4", name: "Stoyka 4m", total: 0 },
+  { id: "stoyka45", name: "Stoyka 4.5m", total: 0 },
+  { id: "stoyka5", name: "Stoyka 5m", total: 0 },
+  { id: "stoyka55", name: "Stoyka 5.5m", total: 0 },
+  { id: "monolit15", name: "Monolit lesa 1.5m", total: 0 },
+  { id: "monolit2", name: "Monolit lesa 2m", total: 0 },
+  { id: "rezba1", name: "Rezba 1m", total: 0 },
+  { id: "rezba120", name: "Rezba 1.20m", total: 0 },
+  { id: "soedinitel", name: "Soedinitel", total: 0 },
+  { id: "univilka", name: "Univilka", total: 0 },
+  { id: "balka3", name: "Balka 3m", total: 0 },
+  { id: "tayrot1", name: "Tayrot 1m", total: 0 },
+  { id: "tayrot120", name: "Tayrot 1.20m", total: 0 },
+  { id: "shpilka1", name: "Shpilka 1m", total: 0 },
+  { id: "shpilka120", name: "Shpilka 1.20m", total: 0 },
+  { id: "gayka", name: "Gayka", total: 0 },
+  { id: "lyulka", name: "Lyulka", total: 0 },
 ];
 
 export async function init() {
@@ -95,7 +95,7 @@ export async function getHistory(pid, limit = 500) {
 export async function applyMove(pid, type, qty) {
   qty = parseInt(qty, 10);
   if (!qty || qty <= 0) throw new Error("bad_qty");
-  if (!["out", "ret", "add"].includes(type)) throw new Error("bad_type");
+  if (!["out", "ret", "add", "writeoff"].includes(type)) throw new Error("bad_type");
 
   const client = await pool.connect();
   try {
@@ -118,6 +118,9 @@ export async function applyMove(pid, type, qty) {
       out -= qty;
     } else if (type === "add") {
       total += qty;
+    } else if (type === "writeoff") {
+      if (qty > total - out) throw new Error("not_enough");
+      total -= qty;
     }
 
     await client.query("UPDATE products SET total=$1, out_qty=$2 WHERE id=$3", [
@@ -153,4 +156,34 @@ export async function setTotal(pid, total) {
     pid,
   ]);
   return { id: pid, total, out, ombor: total - out };
+}
+
+// Hammasini 0 qilish va tarixni tozalash (yangi boshlash uchun)
+export async function resetAll() {
+  await pool.query("UPDATE products SET total=0, out_qty=0");
+  await pool.query("DELETE FROM history");
+}
+
+// Yangi tovar qo'shish
+export async function addProduct(name, total = 0) {
+  name = String(name || "").trim();
+  if (!name) throw new Error("bad_name");
+  total = Math.max(0, parseInt(total, 10) || 0);
+  const base =
+    name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "tovar";
+  const id = base + "-" + Date.now().toString(36);
+  const { rows } = await pool.query(
+    "SELECT COALESCE(MAX(sort_order),0)+1 AS n FROM products"
+  );
+  await pool.query(
+    "INSERT INTO products (id, name, total, out_qty, sort_order) VALUES ($1,$2,$3,0,$4)",
+    [id, name, total, rows[0].n]
+  );
+  return { id, name, total, out: 0, ombor: total };
+}
+
+// Tovarni o'chirish (tarixi bilan)
+export async function deleteProduct(id) {
+  await pool.query("DELETE FROM history WHERE product_id=$1", [id]);
+  await pool.query("DELETE FROM products WHERE id=$1", [id]);
 }

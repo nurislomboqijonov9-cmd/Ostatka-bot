@@ -9,10 +9,12 @@ const HELP =
   "• `300 lesa ketdi` — arendaga chiqdi\n" +
   "• `50 lesa qaytdi` — arendadan qaytdi\n" +
   "• `100 stoyka 4m qoshildi` — omborga yangi tovar keldi\n" +
+  "• `5 lesa sindi` — hisobdan chiqarildi (yaroqsiz)\n" +
   "• `qoldiq` — barcha tovarlar holati\n\n" +
   "Yoki pastdagi tugma orqali ilovani oching 👇";
 
 function detectType(t) {
+  if (/(hisobdan|sindi|singan|siniq|yaroqsiz|buzildi|buzuq|yo['`]?qoldi|yoqoldi|spisat|chiqarildi|ishdan)/i.test(t)) return "writeoff";
   if (/(yangi|qo.?sh|sotib|keltir)/i.test(t)) return "add";
   if (/(qaytdi|qaytib|qayt|keldi)/i.test(t)) return "ret";
   if (/(ketdi|ketti|chiqdi|chiqti|berildi|olib\s*ket|arenda)/i.test(t)) return "out";
@@ -28,6 +30,22 @@ export function startBot() {
 
   const bot = new Telegraf(token);
   const webAppUrl = process.env.WEBAPP_URL;
+
+  // /id — har kim o'z Telegram ID raqamini bilib olishi uchun (himoyadan oldin)
+  bot.command("id", (ctx) =>
+    ctx.reply(`Sizning Telegram ID: ${ctx.from.id}`)
+  );
+
+  // Ruxsat himoyasi: ALLOWED_IDS bo'sh bo'lsa — hammaga ochiq; to'ldirilsa — faqat o'shalarga
+  const allowed = (process.env.ALLOWED_IDS || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  bot.use((ctx, next) => {
+    if (allowed.length === 0) return next();
+    if (allowed.includes(String(ctx.from?.id))) return next();
+    return ctx.reply("⛔ Sizda botdan foydalanishga ruxsat yo'q.");
+  });
 
   const openKeyboard = webAppUrl
     ? Markup.keyboard([Markup.button.webApp("📦 Omborni ochish", webAppUrl)]).resize()
@@ -94,7 +112,11 @@ export function startBot() {
       }
 
       const r = await applyMove(matched.id, type, num);
-      const word = type === "out" ? "chiqdi" : type === "ret" ? "qaytdi" : "qo'shildi";
+      const word =
+        type === "out" ? "chiqdi" :
+        type === "ret" ? "qaytdi" :
+        type === "add" ? "qo'shildi" :
+        "hisobdan chiqarildi";
       await ctx.replyWithMarkdown(
         `✅ *${fmt(num)} ${r.name}* ${word}.\n` +
           `Omborda: *${fmt(r.ombor)}*` +
