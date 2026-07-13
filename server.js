@@ -1,7 +1,7 @@
 import express from "express";
 import { fileURLToPath } from "url";
 import path from "path";
-import { init, getProducts, getHistory, applyMove, setTotal, resetAll, addProduct, deleteProduct } from "./db.js";
+import { init, getProducts, getHistory, applyMove, setTotal, resetAll, addProduct, deleteProduct, renameProduct } from "./db.js";
 import { startBot } from "./bot.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -76,6 +76,15 @@ app.post("/api/product-delete", async (req, res) => {
   try {
     await deleteProduct(id);
     res.json({ ok: true });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+app.post("/api/product-rename", async (req, res) => {
+  const { id, name } = req.body || {};
+  try {
+    res.json(await renameProduct(id, name));
   } catch (e) {
     res.status(400).json({ error: e.message });
   }

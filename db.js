@@ -187,3 +187,13 @@ export async function deleteProduct(id) {
   await pool.query("DELETE FROM history WHERE product_id=$1", [id]);
   await pool.query("DELETE FROM products WHERE id=$1", [id]);
 }
+
+// Tovar nomini o'zgartirish
+export async function renameProduct(id, name) {
+  name = String(name || "").trim();
+  if (!name) throw new Error("bad_name");
+  await pool.query("UPDATE products SET name=$1 WHERE id=$2", [name, id]);
+  // tarixdagi nomni ham yangilaymiz (ko'rinish uchun)
+  await pool.query("UPDATE history SET product_name=$1 WHERE product_id=$2", [name, id]);
+  return { id, name };
+}
